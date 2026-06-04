@@ -15,7 +15,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify if it is a PDF file
+    // Limit upload size to 5MB
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: 'File size too large. The maximum allowed limit is 5MB.' },
+        { status: 400 }
+      );
+    }
+
+    // Verify if it is a PDF file by extension and MIME type
     if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
       return NextResponse.json(
         { error: 'Invalid file format. Only PDF files are allowed.' },
@@ -26,6 +35,14 @@ export async function POST(request: NextRequest) {
     // Convert Next.js File object to Node.js Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // Verify the PDF magic number file signature (%PDF)
+    if (buffer.length < 4 || buffer.toString('utf-8', 0, 4) !== '%PDF') {
+      return NextResponse.json(
+        { error: 'Invalid file signature. The uploaded file is not a valid PDF document.' },
+        { status: 400 }
+      );
+    }
 
     // Parse PDF text and extract profile using Gemini API
     const profile = await parseResumePdf(buffer);

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { UserProfile } from './resume-parser';
+import { retryWithBackoff } from './retry';
 
 export interface JobScore {
   score: number;
@@ -29,27 +30,30 @@ export async function scoreJob(profile: UserProfile, job: JobPosting): Promise<J
 Job posting: ${JSON.stringify(job)}
 Return JSON: { score: 0-100, reason: string (one line) }`;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'OBJECT',
-        properties: {
-          score: { 
-            type: 'INTEGER', 
-            description: 'Compatibility score from 0 to 100' 
+  // Call the Gemini API with structured output schema configuration using retry exponential backoff
+  const response = await retryWithBackoff(() =>
+    ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            score: { 
+              type: 'INTEGER', 
+              description: 'Compatibility score from 0 to 100' 
+            },
+            reason: { 
+              type: 'STRING', 
+              description: 'A concise one-line explanation for the compatibility score' 
+            }
           },
-          reason: { 
-            type: 'STRING', 
-            description: 'A concise one-line explanation for the compatibility score' 
-          }
-        },
-        required: ['score', 'reason']
+          required: ['score', 'reason']
+        }
       }
-    }
-  });
+    })
+  );
 
   if (!response.text) {
     throw new Error('Received an empty response from Gemini Scorer API.');

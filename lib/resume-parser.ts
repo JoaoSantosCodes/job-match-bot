@@ -1,5 +1,6 @@
 import { PDFParse } from 'pdf-parse';
 import { GoogleGenAI } from '@google/genai';
+import { retryWithBackoff } from './retry';
 
 export interface UserProfile {
   jobTitle: string;
@@ -41,10 +42,11 @@ export async function parseResumePdf(pdfBuffer: Buffer): Promise<UserProfile> {
 Resume text:
 ${text}`;
 
-  // Call the Gemini API with structured output schema configuration
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
+  // Call the Gemini API with structured output schema configuration using retry exponential backoff
+  const response = await retryWithBackoff(() =>
+    ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
     config: {
       responseMimeType: 'application/json',
       responseSchema: {
@@ -76,7 +78,7 @@ ${text}`;
         required: ['jobTitle', 'seniorityLevel', 'topSkills', 'workArea', 'languages']
       }
     }
-  });
+  }));
 
   if (!response.text) {
     throw new Error('Received an empty response from Gemini API.');
