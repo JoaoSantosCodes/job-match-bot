@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, dragEvent, ChangeEvent } from 'react';
+import React, { useState, ChangeEvent } from 'react';
 import { UserProfile } from '../lib/resume-parser';
 
 interface UploadFormProps {

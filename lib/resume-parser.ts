@@ -1,4 +1,4 @@
-import pdf from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 import { GoogleGenAI } from '@google/genai';
 
 export interface UserProfile {
@@ -13,8 +13,10 @@ export interface UserProfile {
  * Extracts raw text from a PDF Buffer using pdf-parse.
  */
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
-  const data = await pdf(pdfBuffer);
-  return data.text || '';
+  const parser = new PDFParse({ data: pdfBuffer });
+  const result = await parser.getText();
+  await parser.destroy();
+  return result.text || '';
 }
 
 /**
