@@ -7,7 +7,7 @@ export async function scrapeGupy(): Promise<JobPosting[]> {
   console.log('Running Gupy real API portal scraper...');
   try {
     // Queries the public portal endpoint of Gupy for recent job postings
-    const response = await fetch('https://portal.api.gupy.io/api/v1/jobs?limit=15', {
+    const response = await fetch('https://portal.api.gupy.io/api/v1/jobs?limit=50', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
