@@ -11,6 +11,7 @@ export default function UploadForm({ onUploadSuccess }: UploadFormProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -56,10 +57,15 @@ export default function UploadForm({ onUploadSuccess }: UploadFormProps) {
     if (!file) return;
 
     setIsUploading(true);
+    setUploadStep(1); // Step 1: Read PDF layout and check signatures
     setError(null);
 
     const formData = new FormData();
     formData.append('file', file);
+
+    // Simulated timeouts to transition steps visually during the single HTTP request
+    const stepTimer1 = setTimeout(() => setUploadStep(2), 1000); // 1.0s: Transition to Gemini AI
+    const stepTimer2 = setTimeout(() => setUploadStep(3), 3500); // 3.5s: Transition to Vercel KV save
 
     try {
       const response = await fetch('/api/upload', {
@@ -67,22 +73,29 @@ export default function UploadForm({ onUploadSuccess }: UploadFormProps) {
         body: formData,
       });
 
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
+
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to parse resume.');
       }
 
+      setUploadStep(4); // Success step
+      await new Promise((resolve) => setTimeout(resolve, 600)); // Short pause for visual confirmation
+
       onUploadSuccess(data.sessionId, data.profile);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
+      setUploadStep(0);
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto">
+    <div className="w-full max-w-xl mx-auto space-y-6">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div
           onDragEnter={handleDrag}
@@ -143,6 +156,91 @@ export default function UploadForm({ onUploadSuccess }: UploadFormProps) {
           </div>
         )}
 
+        {isUploading && (
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3.5 text-left animate-fade-in">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800/80 pb-2">
+              Resume Processing pipeline
+            </h4>
+            
+            <div className="space-y-3 text-sm">
+              {/* Step 1 */}
+              <div className="flex items-center space-x-3">
+                {uploadStep > 1 ? (
+                  <span className="text-emerald-400 font-bold text-base">✓</span>
+                ) : uploadStep === 1 ? (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </span>
+                ) : (
+                  <span className="text-slate-700">○</span>
+                )}
+                <span
+                  className={
+                    uploadStep === 1
+                      ? 'text-slate-100 font-semibold'
+                      : uploadStep > 1
+                      ? 'text-slate-500 line-through'
+                      : 'text-slate-600'
+                  }
+                >
+                  1. Checking PDF layout & file signatures
+                </span>
+              </div>
+              
+              {/* Step 2 */}
+              <div className="flex items-center space-x-3">
+                {uploadStep > 2 ? (
+                  <span className="text-emerald-400 font-bold text-base">✓</span>
+                ) : uploadStep === 2 ? (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </span>
+                ) : (
+                  <span className="text-slate-700">○</span>
+                )}
+                <span
+                  className={
+                    uploadStep === 2
+                      ? 'text-slate-100 font-semibold'
+                      : uploadStep > 2
+                      ? 'text-slate-500 line-through'
+                      : 'text-slate-600'
+                  }
+                >
+                  2. Extracting profile details with Gemini AI
+                </span>
+              </div>
+              
+              {/* Step 3 */}
+              <div className="flex items-center space-x-3">
+                {uploadStep > 3 ? (
+                  <span className="text-emerald-400 font-bold text-base">✓</span>
+                ) : uploadStep === 3 ? (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </span>
+                ) : (
+                  <span className="text-slate-700">○</span>
+                )}
+                <span
+                  className={
+                    uploadStep === 3
+                      ? 'text-slate-100 font-semibold'
+                      : uploadStep > 3
+                      ? 'text-slate-500 line-through'
+                      : 'text-slate-600'
+                  }
+                >
+                  3. Persisting session credentials to Vercel KV
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={!file || isUploading}
@@ -170,7 +268,7 @@ export default function UploadForm({ onUploadSuccess }: UploadFormProps) {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span>Analyzing resume with Gemini...</span>
+              <span>Processing...</span>
             </>
           ) : (
             <span>Upload and Analyze Resume</span>

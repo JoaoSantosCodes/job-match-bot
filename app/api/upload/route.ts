@@ -2,9 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { kv } from '@vercel/kv';
 import { parseResumePdf } from '../../../lib/resume-parser';
+import { rateLimit } from '../../../lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Rate Limiting Check (Limit to 10 uploads per hour per IP)
+    const limitResult = await rateLimit(request, 10, 3600);
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many uploads. You are allowed to upload a maximum of 10 resumes per hour.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': limitResult.limit.toString(),
+            'X-RateLimit-Remaining': limitResult.remaining.toString(),
+            'X-RateLimit-Reset': limitResult.reset.toString()
+          }
+        }
+      );
+    }
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
 
@@ -54,8 +70,17 @@ export async function POST(request: NextRequest) {
     // to avoid storing dead sessions indefinitely.
     await kv.set(`profile:${sessionId}`, profile, { ex: 86400 });
 
-    // Return the session ID and profile to the frontend client
-    return NextResponse.json({ sessionId, profile });
+    // Return the session ID and profile to the frontend client with rate limit headers
+    return NextResponse.json(
+      { sessionId, profile },
+      {
+        headers: {
+          'X-RateLimit-Limit': limitResult.limit.toString(),
+          'X-RateLimit-Remaining': limitResult.remaining.toString(),
+          'X-RateLimit-Reset': limitResult.reset.toString()
+        }
+      }
+    );
   } catch (error: any) {
     console.error('Error in upload route:', error);
     return NextResponse.json(
