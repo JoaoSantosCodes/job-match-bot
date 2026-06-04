@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
     }
 
     const matchSummary: Record<string, number> = {};
+    const cronStartTime = Date.now();
 
     // 4. For each profile, score new jobs and alert matches
     for (const profileKey of keys) {
@@ -68,8 +69,22 @@ export async function GET(request: NextRequest) {
       const alreadyProcessedUrls = new Set(existingMatches.map((j) => j.url));
 
       const newMatches: any[] = [];
+      let scoredCount = 0;
 
       for (const job of uniqueJobs) {
+        // Stop if we approach the Vercel serverless timeout limit (10 seconds max on Hobby)
+        const elapsed = Date.now() - cronStartTime;
+        if (elapsed > 7500) {
+          console.warn(`Approaching Vercel execution limit (${elapsed}ms). Stopping further job scoring to avoid timeout.`);
+          break;
+        }
+
+        // Limit the number of new jobs scored per run to conserve free-tier Gemini API quota
+        if (scoredCount >= 10) {
+          console.log(`Reached limit of 10 scored jobs for profile ${sessionId}. Stopping scoring for this run.`);
+          break;
+        }
+
         // Skip if this job was already scored and stored for this user
         if (alreadyProcessedUrls.has(job.url)) {
           continue;
@@ -78,6 +93,7 @@ export async function GET(request: NextRequest) {
         // Call Gemini to score the job against user's profile
         try {
           const matchResult = await scoreJob(profile, job);
+          scoredCount++;
 
           // Forward to Discord and store only if compatibility score is >= 70
           if (matchResult.score >= 70) {
@@ -92,8 +108,24 @@ export async function GET(request: NextRequest) {
             // Send Discord alert in background
             await sendDiscordAlert(job, matchResult);
           }
-        } catch (scoringError) {
+        } catch (scoringError: any) {
           console.error(`Error scoring job "${job.title}" against profile "${sessionId}":`, scoringError);
+          
+          // Detect Gemini rate limit or quota exhaustion (HTTP 429 or status RESOURCE_EXHAUSTED)
+          const errorMsg = (scoringError.message || '').toLowerCase();
+          const errorStatus = scoringError.status || (scoringError.error && scoringError.error.code);
+          if (
+            errorStatus === 429 ||
+            errorMsg.includes('quota') ||
+            errorMsg.includes('limit') ||
+            errorMsg.includes('resource_exhausted')
+          ) {
+            console.warn('Gemini API quota exceeded or rate limit hit. Stopping further scoring for this run.');
+            break;
+          }
+          
+          // Count failures as scored attempts to avoid infinite retries on buggy postings
+          scoredCount++;
         }
       }
 
