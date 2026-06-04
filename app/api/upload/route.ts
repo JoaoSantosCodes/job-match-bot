@@ -64,3 +64,34 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { sessionId, profile } = await request.json();
+
+    if (!sessionId || !profile) {
+      return NextResponse.json(
+        { error: 'Missing sessionId or profile data in the request body.' },
+        { status: 400 }
+      );
+    }
+
+    const validatedProfile = {
+      jobTitle: profile.jobTitle || '',
+      seniorityLevel: profile.seniorityLevel || '',
+      topSkills: Array.isArray(profile.topSkills) ? profile.topSkills : [],
+      workArea: profile.workArea || '',
+      languages: Array.isArray(profile.languages) ? profile.languages : []
+    };
+
+    await kv.set(`profile:${sessionId}`, validatedProfile, { ex: 86400 });
+
+    return NextResponse.json({ success: true, profile: validatedProfile });
+  } catch (error: any) {
+    console.error('Error in upload PUT route:', error);
+    return NextResponse.json(
+      { error: error.message || 'An error occurred while updating the profile.' },
+      { status: 500 }
+    );
+  }
+}
