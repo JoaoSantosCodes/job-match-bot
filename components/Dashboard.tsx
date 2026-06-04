@@ -13,7 +13,8 @@ export default function Dashboard({ sessionId }: DashboardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter States
+  // Status and Filter States
+  const [activeTab, setActiveTab] = useState<'matches' | 'applied' | 'dismissed'>('matches');
   const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'medium'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -50,9 +51,18 @@ export default function Dashboard({ sessionId }: DashboardProps) {
     }
   }, [sessionId]);
 
-  // Apply filters whenever jobs, scoreFilter, or searchQuery changes
+  // Apply filters whenever jobs, scoreFilter, searchQuery, or activeTab changes
   useEffect(() => {
     let result = [...jobs];
+
+    // Filter by status tab
+    if (activeTab === 'matches') {
+      result = result.filter((job) => !job.status || job.status === 'active');
+    } else if (activeTab === 'applied') {
+      result = result.filter((job) => job.status === 'applied');
+    } else if (activeTab === 'dismissed') {
+      result = result.filter((job) => job.status === 'dismissed');
+    }
 
     // Filter by score
     if (scoreFilter === 'high') {
@@ -74,7 +84,40 @@ export default function Dashboard({ sessionId }: DashboardProps) {
     }
 
     setFilteredJobs(result);
-  }, [jobs, scoreFilter, searchQuery]);
+  }, [jobs, scoreFilter, searchQuery, activeTab]);
+
+  // Handle status update and sync to Redis
+  const handleStatusChange = async (jobUrl: string, newStatus: 'active' | 'applied' | 'dismissed') => {
+    const updatedJobs = jobs.map((job) => {
+      if (job.url === jobUrl) {
+        return { ...job, status: newStatus };
+      }
+      return job;
+    });
+
+    // Optimistically update frontend state
+    setJobs(updatedJobs);
+
+    // Sync to Redis
+    try {
+      await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionId,
+          jobs: updatedJobs
+        })
+      });
+    } catch (err) {
+      console.error('Failed to sync job status updates to server:', err);
+    }
+  };
+
+  const activeCount = jobs.filter((j) => !j.status || j.status === 'active').length;
+  const appliedCount = jobs.filter((j) => j.status === 'applied').length;
+  const dismissedCount = jobs.filter((j) => j.status === 'dismissed').length;
 
   if (isLoading) {
     return (
@@ -115,6 +158,59 @@ export default function Dashboard({ sessionId }: DashboardProps) {
 
   return (
     <div className="space-y-8">
+      {/* Board Navigation Tabs */}
+      <div className="flex border-b border-slate-800 pb-px">
+        <div className="flex space-x-8">
+          <button
+            onClick={() => setActiveTab('matches')}
+            className={`pb-4 text-sm font-semibold border-b-2 transition-all relative ${
+              activeTab === 'matches'
+                ? 'border-indigo-500 text-slate-100'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Vagas Recomendadas</span>
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+              activeTab === 'matches' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-900 text-slate-500'
+            }`}>
+              {activeCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('applied')}
+            className={`pb-4 text-sm font-semibold border-b-2 transition-all relative ${
+              activeTab === 'applied'
+                ? 'border-emerald-500 text-slate-100'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Candidatadas</span>
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+              activeTab === 'applied' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-900 text-slate-500'
+            }`}>
+              {appliedCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('dismissed')}
+            className={`pb-4 text-sm font-semibold border-b-2 transition-all relative ${
+              activeTab === 'dismissed'
+                ? 'border-red-500 text-slate-100'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Descartadas</span>
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+              activeTab === 'dismissed' ? 'bg-red-500/20 text-red-400' : 'bg-slate-900 text-slate-500'
+            }`}>
+              {dismissedCount}
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* Filters Toolbar */}
       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search */}
@@ -184,7 +280,11 @@ export default function Dashboard({ sessionId }: DashboardProps) {
       {filteredJobs.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredJobs.map((job, idx) => (
-            <JobCard key={idx} job={job} />
+            <JobCard 
+              key={idx} 
+              job={job} 
+              onStatusChange={(newStatus) => handleStatusChange(job.url, newStatus)}
+            />
           ))}
         </div>
       ) : (
@@ -203,11 +303,21 @@ export default function Dashboard({ sessionId }: DashboardProps) {
               d="M9 12h3.75M9 15h3.375c1.08 0 2.025-.5 2.707-1.226M10.875 18.75h.375M3.75 18.75h16.5M3.75 5.25h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5"
             />
           </svg>
-          <p className="text-slate-400 text-lg font-medium mt-4">No job matches found</p>
+          <p className="text-slate-400 text-lg font-medium mt-4">
+            {activeTab === 'matches'
+              ? 'No matching jobs found'
+              : activeTab === 'applied'
+              ? 'No applied applications yet'
+              : 'No dismissed listings'}
+          </p>
           <p className="text-slate-500 text-sm mt-1 max-w-sm mx-auto">
             {jobs.length === 0
               ? "We haven't run the scraper cron yet, or there are no matched postings. Try triggering the cron scheduler."
-              : 'Try relaxing your filter parameters or checking your spelling.'}
+              : activeTab === 'matches'
+              ? 'Try relaxing your filter parameters or checking your spelling.'
+              : activeTab === 'applied'
+              ? 'Click "Marcar Candidatado" on any recommended job card to track your applications here.'
+              : 'Archive recommended jobs you are not interested in, and they will show up here.'}
           </p>
         </div>
       )}

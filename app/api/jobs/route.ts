@@ -25,3 +25,26 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { sessionId, jobs } = await request.json();
+
+    if (!sessionId || !jobs) {
+      return NextResponse.json(
+        { error: 'Missing sessionId or jobs list in the request body.' },
+        { status: 400 }
+      );
+    }
+
+    await kv.set(`jobs:${sessionId}`, jobs);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error in jobs PUT route:', error);
+    return NextResponse.json(
+      { error: error.message || 'An error occurred while updating jobs list.' },
+      { status: 500 }
+    );
+  }
+}
