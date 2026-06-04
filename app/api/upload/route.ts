@@ -84,7 +84,11 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error in upload route:', error);
     return NextResponse.json(
-      { error: error.message || 'An error occurred during resume upload and parsing.' },
+      {
+        error: error.message || 'An error occurred during resume upload and parsing.',
+        details: error.stack || '',
+        cause: error.cause ? (error.cause.message || String(error.cause)) : ''
+      },
       { status: 500 }
     );
   }

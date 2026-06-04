@@ -83,7 +83,14 @@ export default function UploadForm({ onUploadSuccess }: UploadFormProps) {
       }
 
       if (!response.ok) {
-        throw new Error((data && data.error) || `Server error: ${response.status} ${response.statusText}`);
+        let errorMsg = (data && data.error) || `Server error: ${response.status} ${response.statusText}`;
+        if (data && data.cause) {
+          errorMsg += ` (Cause: ${data.cause})`;
+        }
+        if (data && data.details) {
+          console.error('Server-side stack trace:', data.details);
+        }
+        throw new Error(errorMsg);
       }
 
       if (!data) {
