@@ -1,4 +1,5 @@
-import { PDFParse } from 'pdf-parse';
+// @ts-ignore
+import pdf from 'pdf-parse/lib/pdf-parse.js';
 import { GoogleGenAI } from '@google/genai';
 import { retryWithBackoff } from './retry';
 
@@ -14,9 +15,7 @@ export interface UserProfile {
  * Extracts raw text from a PDF Buffer using pdf-parse.
  */
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
-  const parser = new PDFParse({ data: pdfBuffer });
-  const result = await parser.getText();
-  await parser.destroy();
+  const result = await pdf(pdfBuffer);
   return result.text || '';
 }
 
