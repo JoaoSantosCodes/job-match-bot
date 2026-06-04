@@ -71,17 +71,43 @@ export async function GET(request: NextRequest) {
       const newMatches: any[] = [];
       let scoredCount = 0;
 
-      for (const job of uniqueJobs) {
+      for (let i = 0; i < uniqueJobs.length; i++) {
+        const job = uniqueJobs[i];
+
         // Stop if we approach the Vercel serverless timeout limit (10 seconds max on Hobby)
         const elapsed = Date.now() - cronStartTime;
         if (elapsed > 7500) {
-          console.warn(`Approaching Vercel execution limit (${elapsed}ms). Stopping further job scoring to avoid timeout.`);
+          console.warn(`Approaching Vercel execution limit (${elapsed}ms). Saving remaining jobs as direct matches.`);
+          
+          const remainingJobs = uniqueJobs.slice(i);
+          for (const fallbackJob of remainingJobs) {
+            if (!alreadyProcessedUrls.has(fallbackJob.url)) {
+              newMatches.push({
+                ...fallbackJob,
+                score: 70,
+                reason: 'Busca direta: Vaga de interesse (Pontuação por IA ignorada para evitar tempo limite do servidor).',
+                matchedAt: new Date().toISOString()
+              });
+            }
+          }
           break;
         }
 
         // Limit the number of new jobs scored per run to conserve free-tier Gemini API quota
         if (scoredCount >= 10) {
-          console.log(`Reached limit of 10 scored jobs for profile ${sessionId}. Stopping scoring for this run.`);
+          console.log(`Reached limit of 10 scored jobs for profile ${sessionId}. Saving remaining as direct matches.`);
+          
+          const remainingJobs = uniqueJobs.slice(i);
+          for (const fallbackJob of remainingJobs) {
+            if (!alreadyProcessedUrls.has(fallbackJob.url)) {
+              newMatches.push({
+                ...fallbackJob,
+                score: 70,
+                reason: 'Busca direta: Vaga de interesse (Pontuação por IA ignorada para economizar cota da API).',
+                matchedAt: new Date().toISOString()
+              });
+            }
+          }
           break;
         }
 
@@ -120,7 +146,19 @@ export async function GET(request: NextRequest) {
             errorMsg.includes('limit') ||
             errorMsg.includes('resource_exhausted')
           ) {
-            console.warn('Gemini API quota exceeded or rate limit hit. Stopping further scoring for this run.');
+            console.warn('Gemini API quota exceeded or rate limit hit. Falling back to direct matches for remaining jobs.');
+            
+            const remainingJobs = uniqueJobs.slice(i);
+            for (const fallbackJob of remainingJobs) {
+              if (!alreadyProcessedUrls.has(fallbackJob.url)) {
+                newMatches.push({
+                  ...fallbackJob,
+                  score: 70,
+                  reason: 'Busca direta: Vaga de interesse (Pontuação por IA ignorada devido a limite de cota da API).',
+                  matchedAt: new Date().toISOString()
+                });
+              }
+            }
             break;
           }
           
