@@ -36,10 +36,17 @@ export async function parseResumePdf(pdfBuffer: Buffer): Promise<UserProfile> {
   // Initialize the modern JS/TS client for Google GenAI
   const ai = new GoogleGenAI({ apiKey });
 
-  const prompt = `Extract from this resume: job title, seniority level, top 5 technical skills, work area, languages spoken. Return only JSON.
-
-Resume text:
-${text}`;
+  const prompt = `Extract and standardize candidate details from the following resume text.
+  
+  Follow these classification guidelines strictly to ensure compatibility with job board tags:
+  1. "jobTitle": Current or desired professional title (e.g., "Analista de Infraestrutura de TI", "DevOps Engineer").
+  2. "seniorityLevel": Classify the experience level as exactly one of: "Junior", "Pleno", "Senior", "Lead", "Specialist", or "Intern".
+  3. "workArea": Classify the professional domain as exactly one of: "DevOps", "Infrastructure", "Backend", "Frontend", "Fullstack", "Data / Analytics", "QA / Testing", "Security", or "Management".
+  4. "topSkills": Extract exactly the top 5 technical skills, programming languages, frameworks, or tools (e.g., ["Linux", "Kubernetes", "TypeScript", "Zabbix", "Docker"]). Avoid general phrases.
+  5. "languages": List spoken languages as standard names (e.g., ["Portuguese", "English", "Spanish"]).
+  
+  Resume text:
+  ${text}`;
 
   // Call the Gemini API with structured output schema configuration using retry exponential backoff
   const response = await retryWithBackoff(() =>
