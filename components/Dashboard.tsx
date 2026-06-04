@@ -17,6 +17,8 @@ export default function Dashboard({ sessionId }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'matches' | 'applied' | 'dismissed'>('matches');
   const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'medium'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [workplaceFilter, setWorkplaceFilter] = useState<'all' | 'remote' | 'hybrid' | 'on-site'>('all');
+  const [citySearch, setCitySearch] = useState('');
 
   useEffect(() => {
     async function fetchJobs() {
@@ -51,7 +53,7 @@ export default function Dashboard({ sessionId }: DashboardProps) {
     }
   }, [sessionId]);
 
-  // Apply filters whenever jobs, scoreFilter, searchQuery, or activeTab changes
+  // Apply filters whenever jobs, scoreFilter, searchQuery, workplaceFilter, citySearch, or activeTab changes
   useEffect(() => {
     let result = [...jobs];
 
@@ -71,6 +73,32 @@ export default function Dashboard({ sessionId }: DashboardProps) {
       result = result.filter((job) => job.score >= 70 && job.score < 80);
     }
 
+    // Filter by workplace type
+    if (workplaceFilter !== 'all') {
+      result = result.filter((job) => {
+        if (job.workplaceType === workplaceFilter) return true;
+        // Fallback checks for legacy data or loose mapping
+        const jobLoc = (job.location || '').toLowerCase();
+        if (workplaceFilter === 'remote' && (jobLoc.includes('remote') || jobLoc.includes('remoto'))) return true;
+        if (workplaceFilter === 'hybrid' && (jobLoc.includes('hybrid') || jobLoc.includes('híbrid'))) return true;
+        if (workplaceFilter === 'on-site' && !jobLoc.includes('remote') && !jobLoc.includes('remoto') && !jobLoc.includes('hybrid') && !jobLoc.includes('híbrid')) return true;
+        return false;
+      });
+    }
+
+    // Filter by city search query
+    if (citySearch.trim()) {
+      const cityQuery = citySearch.toLowerCase();
+      result = result.filter((job) => {
+        const jobLoc = (job.location || '').toLowerCase();
+        // Skip "remote/remoto" string matches unless the user explicitly searches for "remot"
+        if (jobLoc.includes('remote') || jobLoc.includes('remoto')) {
+          return cityQuery.includes('remot');
+        }
+        return jobLoc.includes(cityQuery);
+      });
+    }
+
     // Filter by search query (title, company, description, or requirements)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -84,7 +112,7 @@ export default function Dashboard({ sessionId }: DashboardProps) {
     }
 
     setFilteredJobs(result);
-  }, [jobs, scoreFilter, searchQuery, activeTab]);
+  }, [jobs, scoreFilter, searchQuery, workplaceFilter, citySearch, activeTab]);
 
   // Handle status update and sync to Redis
   const handleStatusChange = async (jobUrl: string, newStatus: 'active' | 'applied' | 'dismissed') => {
@@ -212,67 +240,132 @@ export default function Dashboard({ sessionId }: DashboardProps) {
       </div>
 
       {/* Filters Toolbar */}
-      <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Search title, company, or skills..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-slate-700 transition-colors"
-          />
-          <svg
-            className="absolute left-3.5 top-3 w-4 h-4 text-slate-500"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z"
+      <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl">
+        {/* First Row: Search inputs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Main Keyword Search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search title, company, or skills..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-slate-700 transition-colors"
             />
-          </svg>
+            <svg
+              className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z"
+              />
+            </svg>
+          </div>
+
+          {/* City / Location Search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search by city or region (e.g. São Paulo)..."
+              value={citySearch}
+              onChange={(e) => setCitySearch(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-slate-700 transition-colors"
+            />
+            <span className="absolute left-3.5 top-2.5 text-base">📍</span>
+          </div>
         </div>
 
-        {/* Score filter buttons */}
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-2">
-            Match Level:
-          </span>
-          <button
-            onClick={() => setScoreFilter('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
-              scoreFilter === 'all'
-                ? 'bg-indigo-500 border-indigo-500 text-white'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-            }`}
-          >
-            All Matches
-          </button>
-          <button
-            onClick={() => setScoreFilter('high')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
-              scoreFilter === 'high'
-                ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-            }`}
-          >
-            High Fit (≥80%)
-          </button>
-          <button
-            onClick={() => setScoreFilter('medium')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
-              scoreFilter === 'medium'
-                ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 hover:bg-amber-500/30'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-            }`}
-          >
-            Mid Fit (70-79%)
-          </button>
+        {/* Second Row: Filter Buttons */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-4 border-t border-slate-800/40">
+          {/* Match Level */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-2">
+              Match Level:
+            </span>
+            <button
+              onClick={() => setScoreFilter('all')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                scoreFilter === 'all'
+                  ? 'bg-indigo-500 border-indigo-500 text-white'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              All Matches
+            </button>
+            <button
+              onClick={() => setScoreFilter('high')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                scoreFilter === 'high'
+                  ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              High Fit (≥80%)
+            </button>
+            <button
+              onClick={() => setScoreFilter('medium')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                scoreFilter === 'medium'
+                  ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 hover:bg-amber-500/30'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              Mid Fit (70-79%)
+            </button>
+          </div>
+
+          {/* Workplace Type */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-2">
+              Workplace:
+            </span>
+            <button
+              onClick={() => setWorkplaceFilter('all')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                workplaceFilter === 'all'
+                  ? 'bg-indigo-500 border-indigo-500 text-white'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              Any
+            </button>
+            <button
+              onClick={() => setWorkplaceFilter('remote')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                workplaceFilter === 'remote'
+                  ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              Remote
+            </button>
+            <button
+              onClick={() => setWorkplaceFilter('hybrid')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                workplaceFilter === 'hybrid'
+                  ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/30'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              Hybrid
+            </button>
+            <button
+              onClick={() => setWorkplaceFilter('on-site')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                workplaceFilter === 'on-site'
+                  ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              On-site
+            </button>
+          </div>
         </div>
       </div>
 

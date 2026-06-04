@@ -12,6 +12,8 @@ export interface MatchedJob {
   reason: string;
   matchedAt?: string;
   status?: 'active' | 'applied' | 'dismissed';
+  location?: string;
+  workplaceType?: string;
 }
 
 interface JobCardProps {
@@ -44,6 +46,22 @@ export default function JobCard({ job, onStatusChange }: JobCardProps) {
             <h3 className="text-lg font-bold text-slate-100 mt-1 leading-snug">
               {job.title}
             </h3>
+            
+            {/* Location Tag */}
+            {job.location && (
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                  job.workplaceType === 'remote'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    : job.workplaceType === 'hybrid'
+                    ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+                    : 'bg-slate-800/60 border-slate-700/50 text-slate-300'
+                }`}>
+                  <span className="mr-1">{job.workplaceType === 'remote' ? '🌐' : '📍'}</span>
+                  {job.location}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center space-x-1.5 shrink-0">
             <span

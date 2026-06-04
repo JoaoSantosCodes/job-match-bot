@@ -13,6 +13,8 @@ export interface JobPosting {
   description: string;
   requirements?: string;
   url: string;
+  location?: string;
+  workplaceType?: string;
 }
 
 /**

@@ -37,7 +37,9 @@ export async function scrapeRemoteOk(): Promise<JobPosting[]> {
         company: item.company || 'Confidential Company',
         description: cleanDescription.slice(0, 1000), // Slice to keep prompt context sizes optimal
         requirements: Array.isArray(item.tags) ? item.tags.join(', ') : '',
-        url: item.url || `https://remoteok.com/remote-jobs/${item.id}`
+        url: item.url || `https://remoteok.com/remote-jobs/${item.id}`,
+        location: item.location ? `${item.location} (Remoto)` : 'Remoto',
+        workplaceType: 'remote'
       };
     });
   } catch (error) {
@@ -49,7 +51,9 @@ export async function scrapeRemoteOk(): Promise<JobPosting[]> {
         company: 'RemoteFirst Co',
         description: 'Looking for a generalist to build web applications using React, Next.js, and Node.js.',
         requirements: 'React, Node, TypeScript, Next.js',
-        url: 'https://remoteok.com/remote-jobs/112233'
+        url: 'https://remoteok.com/remote-jobs/112233',
+        location: 'Remoto',
+        workplaceType: 'remote'
       }
     ];
   }

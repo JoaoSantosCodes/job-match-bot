@@ -26,6 +26,11 @@ export async function sendDiscordAlert(job: JobPosting, score: JobScore): Promis
         inline: true
       },
       {
+        name: 'Location',
+        value: job.location || 'Não especificada',
+        inline: true
+      },
+      {
         name: 'Compatibility Score',
         value: `🎯 **${score.score}%**`,
         inline: true

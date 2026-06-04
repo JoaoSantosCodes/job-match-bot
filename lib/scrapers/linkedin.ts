@@ -52,12 +52,41 @@ export async function scrapeLinkedIn(): Promise<JobPosting[]> {
       const dateText = dateMatch ? dateMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
 
       if (url && title && company) {
+        // Estimate workplace type for LinkedIn
+        let workplaceType = 'on-site';
+        const cleanTitle = title.toLowerCase();
+        const cleanLoc = jobLocation.toLowerCase();
+        let formattedLocation = jobLocation;
+        
+        if (
+          cleanTitle.includes('remoto') ||
+          cleanTitle.includes('remote') ||
+          cleanLoc.includes('remoto') ||
+          cleanLoc.includes('remote')
+        ) {
+          workplaceType = 'remote';
+          formattedLocation = 'Remoto';
+        } else if (
+          cleanTitle.includes('híbrid') ||
+          cleanTitle.includes('hybrid') ||
+          cleanLoc.includes('híbrid') ||
+          cleanLoc.includes('hybrid')
+        ) {
+          workplaceType = 'hybrid';
+          formattedLocation = `${jobLocation} (Híbrido)`;
+        } else {
+          workplaceType = 'on-site';
+          formattedLocation = `${jobLocation} (Presencial)`;
+        }
+
         jobs.push({
           title,
           company,
           url,
           description: `Vaga no LinkedIn em ${jobLocation}. Publicada em: ${dateText || 'Recentemente'}. Clique no link para ver a descrição completa e se candidatar.`,
-          requirements: 'Ver detalhes no LinkedIn'
+          requirements: 'Ver detalhes no LinkedIn',
+          location: formattedLocation,
+          workplaceType
         });
       }
     }

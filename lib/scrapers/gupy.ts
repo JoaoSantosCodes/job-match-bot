@@ -6,8 +6,8 @@ import { JobPosting } from '../scorer';
 export async function scrapeGupy(): Promise<JobPosting[]> {
   console.log('Running Gupy real API portal scraper...');
   try {
-    // Queries the public portal endpoint of Gupy for recent job postings
-    const response = await fetch('https://portal.api.gupy.io/api/v1/jobs?limit=50', {
+    // Queries the public portal endpoint of Gupy for recent DevOps job postings
+    const response = await fetch('https://portal.api.gupy.io/api/v1/jobs?jobName=DevOps&limit=50', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
@@ -27,12 +27,36 @@ export async function scrapeGupy(): Promise<JobPosting[]> {
         .replace(/\s+/g, ' ')
         .trim();
 
+      // Format Location and Workplace Type
+      let jobLocation = 'Brasil';
+      let workplaceType = 'on-site';
+
+      if (item.workplaceType === 'remote' || item.isRemoteWork === true) {
+        jobLocation = 'Remoto';
+        workplaceType = 'remote';
+      } else {
+        const city = item.city || '';
+        const state = item.state || '';
+        const wType = item.workplaceType === 'hybrid' ? 'Híbrido' : 'Presencial';
+        workplaceType = item.workplaceType === 'hybrid' ? 'hybrid' : 'on-site';
+        
+        if (city && state) {
+          jobLocation = `${city}, ${state} (${wType})`;
+        } else if (city || state) {
+          jobLocation = `${city || state} (${wType})`;
+        } else {
+          jobLocation = `Brasil (${wType})`;
+        }
+      }
+
       return {
         title: item.name || 'Desenvolvedor',
         company: item.companyName || 'Empresa Confidencial',
         description: cleanDescription.slice(0, 1000), // Protect token limit sizes
         requirements: '', // Requirements are embedded in Gupy descriptions
-        url: item.jobUrl || `https://portal.gupy.io/jobs/${item.id}`
+        url: item.jobUrl || `https://portal.gupy.io/jobs/${item.id}`,
+        location: jobLocation,
+        workplaceType
       };
     });
   } catch (error) {
@@ -44,7 +68,9 @@ export async function scrapeGupy(): Promise<JobPosting[]> {
         company: 'Loggi',
         description: 'Construir microsserviços escaláveis usando Python, FastAPI e PostgreSQL.',
         requirements: 'Python, FastAPI, Postgres, Docker',
-        url: 'https://loggi.gupy.io/jobs/123456'
+        url: 'https://loggi.gupy.io/jobs/123456',
+        location: 'São Paulo, SP (Híbrido)',
+        workplaceType: 'hybrid'
       }
     ];
   }
