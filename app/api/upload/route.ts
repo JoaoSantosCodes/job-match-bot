@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { kv } from '@vercel/kv';
+import { kv } from '../../../lib/db';
 import { parseResumePdf } from '../../../lib/resume-parser';
 import { rateLimit } from '../../../lib/rate-limit';
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { kv } from '../../../lib/db';
 import { scrapeGupy } from '../../../lib/scrapers/gupy';
 import { scrapeLinkedIn } from '../../../lib/scrapers/linkedin';
 import { scrapeRemoteOk } from '../../../lib/scrapers/remoteok';

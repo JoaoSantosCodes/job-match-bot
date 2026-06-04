@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { kv } from '@vercel/kv';
+import { kv } from './db';
 
 export interface RateLimitResult {
   success: boolean;
