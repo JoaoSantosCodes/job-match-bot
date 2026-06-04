@@ -1,11 +1,13 @@
 import { createClient as createKVClient } from '@vercel/kv';
 import { createClient as createRedisClient } from 'redis';
 
+type KVClientType = ReturnType<typeof createKVClient>;
+
 // Global cache for TCP Redis client to prevent multiple connections in hot-reloading/serverless
 let globalRedis: any = null;
-let globalKVRest: any = null;
+let globalKVRest: KVClientType | null = null;
 
-function getRESTClient() {
+function getRESTClient(): KVClientType {
   if (globalKVRest) return globalKVRest;
   
   const restUrl =
@@ -27,7 +29,7 @@ function getRESTClient() {
   return globalKVRest;
 }
 
-async function getTCPClient() {
+async function getTCPClient(): Promise<any> {
   const redisUrl =
     process.env.REDIS_URL ||
     process.env.STORAGE_URL ||
@@ -87,7 +89,7 @@ export const kv = {
       const res = await tcp.set(key, stringVal, redisOptions);
       return res === 'OK' ? 'OK' : null;
     }
-    return getRESTClient().set(key, value, options);
+    return getRESTClient().set(key, value, options as any);
   },
 
   async incr(key: string): Promise<number> {
