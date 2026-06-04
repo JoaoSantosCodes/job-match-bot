@@ -23,10 +23,18 @@ export default function Dashboard({ sessionId }: DashboardProps) {
       setError(null);
       try {
         const res = await fetch(`/api/jobs?sessionId=${sessionId}`);
-        const data = await res.json();
+        let data;
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await res.json();
+        }
 
         if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch job matches.');
+          throw new Error((data && data.error) || `Server error: ${res.status} ${res.statusText}`);
+        }
+
+        if (!data) {
+          throw new Error('Received an empty response from server.');
         }
 
         setJobs(data.jobs || []);

@@ -60,10 +60,14 @@ export default function Home() {
         body: JSON.stringify({ sessionId, profile: updatedProfile })
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update profile.');
+        throw new Error((data && data.error) || `Server error: ${response.status} ${response.statusText}`);
       }
 
       setProfile(data.profile);

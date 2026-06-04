@@ -76,10 +76,18 @@ export default function UploadForm({ onUploadSuccess }: UploadFormProps) {
       clearTimeout(stepTimer1);
       clearTimeout(stepTimer2);
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to parse resume.');
+        throw new Error((data && data.error) || `Server error: ${response.status} ${response.statusText}`);
+      }
+
+      if (!data) {
+        throw new Error('Received an empty response from server.');
       }
 
       setUploadStep(4); // Success step
